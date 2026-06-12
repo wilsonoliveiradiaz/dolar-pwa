@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f1117" />
+  <title>Dólar ao Vivo</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0f1117;
+      --surface: #181c25;
+      --surface2: #1e2330;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8eaf0;
+      --muted: #7a8299;
+      --green: #1fc98a;
+      --green-dim: rgba(31,201,138,0.12);
+      --red: #e05a5a;
+      --red-dim: rgba(224,90,90,0.10);
+      --accent: #4f8ef7;
+      --mono: 'SF Mono','Fira Code','Consolas',monospace;
+      --sans: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    }
+    html, body { height: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow-y: auto;
+      -webkit-font-smoothing: antialiased;
+    }
+    .panel { max-width: 720px; margin: 0 auto; padding: 24px 18px 32px; }
+
+    /* HEADER */
+    .header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+    .eyebrow { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .pair { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; font-family: var(--mono); }
+    .pair span { color: var(--muted); font-weight: 400; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #444; transition: background 0.3s; }
+    .dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.error { background: var(--red); }
+    .btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); font-size: 12px; font-family: var(--sans);
+      padding: 6px 12px; border-radius: 6px; cursor: pointer;
+      display: flex; align-items: center; gap: 5px; transition: color 0.2s, border-color 0.2s;
+    }
+    .btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+    .btn svg { width: 13px; height: 13px; }
+
+    /* MAIN RATE */
+    .main-rate {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 22px 26px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .rate-block .rl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
+    .rate-block .rv { font-family: var(--mono); font-size: 36px; font-weight: 600; letter-spacing: -1px; line-height: 1; }
+    .rate-block .rv .cur { font-size: 15px; font-weight: 400; color: var(--muted); margin-right: 2px; }
+    .divv { width: 1px; height: 52px; background: var(--border); flex-shrink: 0; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-family: var(--mono); font-size: 13px; font-weight: 500;
+      padding: 3px 10px; border-radius: 20px; margin-top: 6px;
+    }
+    .badge.up   { background: var(--green-dim); color: var(--green); }
+    .badge.down { background: var(--red-dim);   color: var(--red); }
+    .badge.flat { background: rgba(122,130,153,0.1); color: var(--muted); }
+
+    /* CARDS */
+    .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-bottom: 14px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; }
+    .card .cl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 5px; }
+    .card .cv { font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--text); }
+
+    /* CHART BOXES */
+    .chart-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 18px 20px 14px; margin-bottom: 12px;
+    }
+    .chart-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .chart-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+    .tab-group { display: flex; gap: 4px; }
+    .tab {
+      background: transparent; border: 1px solid var(--border);
+      color: var(--muted); font-size: 11px; font-family: var(--sans);
+      padding: 3px 9px; border-radius: 5px; cursor: pointer; transition: all 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { background: var(--surface2); border-color: rgba(255,255,255,0.18); color: var(--text); }
+    .legend { display: flex; gap: 12px; }
+    .li { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+    .ll { width: 16px; height: 2px; border-radius: 1px; }
+    .chart-wrap { position: relative; width: 100%; height: 190px; }
+    .chart-wrap.sm { height: 140px; }
+
+    /* FOOTER */
+    .footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+    .footer .lu { font-size: 11px; color: var(--muted); }
+    .footer .src { font-size: 11px; color: var(--muted); }
+
+    /* INSTALL BANNER */
+    #install-banner {
+      display: none;
+      background: var(--surface2); border: 1px solid rgba(31,201,138,0.25);
+      border-radius: 10px; padding: 12px 16px; margin-bottom: 14px;
+      align-items: center; justify-content: space-between; gap: 12px;
+    }
+    #install-banner p { font-size: 13px; color: var(--text); }
+    #install-banner p span { color: var(--green); }
+    .btn-install {
+      background: var(--green-dim); border: 1px solid rgba(31,201,138,0.3);
+      color: var(--green); font-size: 12px; font-family: var(--sans);
+      padding: 7px 16px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+      font-weight: 500; transition: background 0.2s;
+    }
+    .btn-install:hover { background: rgba(31,201,138,0.22); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { animation: spin 0.7s linear infinite; }
+
+    @media (max-width: 520px) {
+      .main-rate { flex-direction: column; gap: 14px; }
+      .divv { display: none; }
+      .cards { grid-template-columns: 1fr 1fr; }
+      .chart-top { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+<div class="panel">
+
+  <!-- INSTALL BANNER -->
+  <div id="install-banner">
+    <p>Instale como <span>app no desktop</span> para acesso rápido</p>
+    <button class="btn-install" id="btn-install">Instalar app</button>
+  </div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <div class="eyebrow">Câmbio em tempo real</div>
+      <div class="pair">USD<span>/</span>BRL</div>
+    </div>
+    <div class="header-right">
+      <div class="status">
+        <div class="dot" id="dot"></div>
+        <span id="status-txt">Carregando…</span>
+      </div>
+      <button class="btn" onclick="refresh()">
+        <svg id="refresh-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13.5 2.5A6.5 6.5 0 0 0 2 8"/>
+          <path d="M2.5 13.5A6.5 6.5 0 0 0 14 8"/>
+          <polyline points="13.5 2.5 13.5 5.5 10.5 5.5"/>
+          <polyline points="2.5 13.5 2.5 10.5 5.5 10.5"/>
+        </svg>
+        Atualizar
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN RATE -->
+  <div class="main-rate">
+    <div class="rate-block">
+      <div class="rl">Compra</div>
+      <div class="rv"><span class="cur">R$</span><span id="bid-val">—</span></div>
+      <div id="chg-badge" class="badge flat">—</div>
+    </div>
+    <div class="divv"></div>
+    <div class="rate-block">
+      <div class="rl">Venda</div>
+      <div class="rv"><span class="cur">R$</span><span id="ask-val">—</span></div>
+      <div id="pct-badge" class="badge flat">—</div>
+    </div>
+  </div>
+
+  <!-- CARDS -->
+  <div class="cards">
+    <div class="card"><div class="cl">Máxima</div><div class="cv" id="high-val">—</div></div>
+    <div class="card"><div class="cl">Mínima</div><div class="cv" id="low-val">—</div></div>
+    <div class="card"><div class="cl">Spread</div><div class="cv" id="spread-val">—</div></div>
+    <div class="card"><div class="cl">Atualiza em</div><div class="cv" id="countdown">30s</div></div>
+  </div>
+
+  <!-- INTRADAY CHART -->
+  <div class="chart-box">
+    <div class="chart-top">
+      <div class="chart-title">Gráfico intraday</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div class="tab-group">
+          <button class="tab active" onclick="setRange(30,this)">30min</button>
+          <button class="tab" onclick="setRange(60,this)">1h</button>
+          <button class="tab" onclick="setRange(120,this)">2h</button>
+          <button class="tab" onclick="setRange(288,this)">Hoje</button>
+        </div>
+        <div class="legend">
+          <div class="li"><div class="ll" style="background:#1fc98a;"></div>Compra</div>
+          <div class="li"><div class="ll" style="background:#4f8ef7;border-top:2px dashed #4f8ef7;height:0;"></div>Venda</div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="intradayChart" role="img" aria-label="Gráfico intraday USD/BRL por minuto"></canvas></div>
+  </div>
+
+  <!-- SESSION CHART -->
+  <div class="chart-box">
+    <div class="chart-top">
+      <div class="chart-title">Histórico da sessão</div>
+      <div class="legend">
+        <div class="li"><div class="ll" style="background:#1fc98a;"></div>Compra</div>
+        <div class="li"><div class="ll" style="background:#4f8ef7;border-top:2px dashed #4f8ef7;height:0;"></div>Venda</div>
+      </div>
+    </div>
+    <div class="chart-wrap sm"><canvas id="sessionChart" role="img" aria-label="Histórico da sessão atual USD/BRL"></canvas></div>
+  </div>
+
+  <div class="footer">
+    <div class="lu" id="last-update">Aguardando dados…</div>
+    <div class="src">Fonte: AwesomeAPI</div>
+  </div>
+
+</div>
+
+<script>
+  // PWA install
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').style.display = 'flex';
+  });
+  document.getElementById('btn-install').addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') document.getElementById('install-banner').style.display = 'none';
+    deferredPrompt = null;
+  });
+  window.addEventListener('appinstalled', () => {
+    document.getElementById('install-banner').style.display = 'none';
+  });
+
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(console.warn);
+  }
+
+  // Charts
+  let intradayChart, sessionChart;
+  let currentRange = 30;
+  let intradayData = [];
+  const session = { labels: [], bid: [], ask: [] };
+  let sessionInited = false;
+  let countdown = 30;
+  let countdownTimer;
+
+  const baseOpts = () => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 300 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1e2330',
+        borderColor: 'rgba(255,255,255,0.08)', borderWidth: 1,
+        titleColor: '#7a8299', bodyColor: '#e8eaf0',
+        callbacks: { label: ctx => ' ' + ctx.dataset.label + ': R$ ' + ctx.parsed.y.toFixed(4) }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { color: '#7a8299', font: { size: 10, family: 'monospace' }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+        grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.05)' }
+      },
+      y: {
+        ticks: { color: '#7a8299', font: { size: 10, family: 'monospace' }, callback: v => 'R$' + v.toFixed(2) },
+        grid: { color: 'rgba(255,255,255,0.04)' }, border: { color: 'rgba(255,255,255,0.05)' }
+      }
+    }
+  });
+
+  function makeDatasets(labels, bids, asks) {
+    return {
+      labels,
+      datasets: [
+        { label: 'Compra', data: bids, borderColor: '#1fc98a', backgroundColor: 'rgba(31,201,138,0.06)', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: true },
+        { label: 'Venda',  data: asks, borderColor: '#4f8ef7', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5,4], pointRadius: 0, tension: 0.3, fill: false }
+      ]
+    };
+  }
+
+  function setRange(n, btn) {
+    currentRange = n;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderIntraday();
+  }
+
+  function renderIntraday() {
+    const slice = intradayData.slice(-currentRange);
+    const labels = slice.map(d => d.time);
+    const bids   = slice.map(d => d.bid);
+    const asks   = slice.map(d => d.ask);
+    if (!intradayChart) {
+      intradayChart = new Chart(document.getElementById('intradayChart').getContext('2d'), {
+        type: 'line', data: makeDatasets(labels, bids, asks), options: baseOpts()
+      });
+    } else {
+      intradayChart.data.labels = labels;
+      intradayChart.data.datasets[0].data = bids;
+      intradayChart.data.datasets[1].data = asks;
+      intradayChart.update();
+    }
+  }
+
+  function renderSession() {
+    if (!sessionInited) {
+      const opts = baseOpts();
+      opts.animation.duration = 400;
+      sessionChart = new Chart(document.getElementById('sessionChart').getContext('2d'), {
+        type: 'line', data: makeDatasets([...session.labels], [...session.bid], [...session.ask]), options: opts
+      });
+      sessionInited = true;
+    } else {
+      sessionChart.data.labels = [...session.labels];
+      sessionChart.data.datasets[0].data = [...session.bid];
+      sessionChart.data.datasets[1].data = [...session.ask];
+      sessionChart.update();
+    }
+  }
+
+  function setStatus(ok) {
+    const dot = document.getElementById('dot');
+    dot.className = 'dot ' + (ok ? 'live' : 'error');
+    document.getElementById('status-txt').textContent = ok ? 'Ao vivo' : 'Erro na conexão';
+  }
+
+  function startCountdown() {
+    clearInterval(countdownTimer);
+    countdown = 30;
+    document.getElementById('countdown').textContent = '30s';
+    countdownTimer = setInterval(() => {
+      countdown = Math.max(0, countdown - 1);
+      document.getElementById('countdown').textContent = countdown + 's';
+    }, 1000);
+  }
+
+  async function fetchIntraday() {
+    try {
+      const res = await fetch('https://economia.awesomeapi.com.br/json/USD-BRL/300');
+      const arr = await res.json();
+      intradayData = arr.reverse().map(d => {
+        const dt = new Date(parseInt(d.timestamp) * 1000);
+        return {
+          time: dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          bid: parseFloat(d.bid),
+          ask: parseFloat(d.ask)
+        };
+      });
+      renderIntraday();
+    } catch(e) { console.warn('intraday error', e); }
+  }
+
+  async function fetchRate() {
+    const icon = document.getElementById('refresh-icon');
+    icon.classList.add('spinning');
+    try {
+      const res = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+      const data = await res.json();
+      const d = data.USDBRL;
+      const bid = parseFloat(d.bid), ask = parseFloat(d.ask);
+      const chg = parseFloat(d.varBid), pct = parseFloat(d.pctChange);
+
+      document.getElementById('bid-val').textContent  = bid.toFixed(4);
+      document.getElementById('ask-val').textContent  = ask.toFixed(4);
+      document.getElementById('high-val').textContent = 'R$ ' + parseFloat(d.high).toFixed(4);
+      document.getElementById('low-val').textContent  = 'R$ ' + parseFloat(d.low).toFixed(4);
+      document.getElementById('spread-val').textContent = 'R$ ' + (ask - bid).toFixed(4);
+
+      const sign = chg >= 0 ? '+' : '';
+      const dir  = chg > 0 ? 'up' : chg < 0 ? 'down' : 'flat';
+      const arrow = chg > 0 ? '▲' : chg < 0 ? '▼' : '—';
+
+      const cb = document.getElementById('chg-badge');
+      cb.className = 'badge ' + dir; cb.textContent = arrow + ' ' + sign + chg.toFixed(4);
+
+      const pb = document.getElementById('pct-badge');
+      pb.className = 'badge ' + dir; pb.textContent = sign + pct.toFixed(2) + '%';
+
+      const now = new Date(parseInt(d.timestamp) * 1000);
+      document.getElementById('last-update').textContent =
+        'Atualizado: ' + now.toLocaleDateString('pt-BR') + ' às ' + now.toLocaleTimeString('pt-BR');
+
+      const tick = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      session.labels.push(tick); session.bid.push(bid); session.ask.push(ask);
+      if (session.labels.length > 60) { session.labels.shift(); session.bid.shift(); session.ask.shift(); }
+      renderSession();
+
+      setStatus(true);
+      startCountdown();
+    } catch(e) { setStatus(false); }
+    icon.classList.remove('spinning');
+  }
+
+  async function refresh() {
+    await Promise.all([fetchRate(), fetchIntraday()]);
+  }
+
+  refresh();
+  setInterval(fetchRate, 30000);
+  setInterval(fetchIntraday, 60000);
+</script>
+</body>
+</html>
