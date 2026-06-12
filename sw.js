@@ -1,9 +1,10 @@
-const CACHE = 'dolar-pwa-v1';
+const CACHE = 'dolar-pwa-v2';
 const STATIC = [
-  '/index.html',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/dolar-pwa/',
+  '/dolar-pwa/index.html',
+  '/dolar-pwa/manifest.json',
+  '/dolar-pwa/icons/icon-192.png',
+  '/dolar-pwa/icons/icon-512.png',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'
 ];
 
